@@ -42,12 +42,12 @@
 <script>
     const form = document.getElementById("customerForm");
     const result = document.getElementById("result");
-    const customerEndpoint = "v1/customers";
+    const customerEndpoint = "api/v1/customers";
 
     function buildCandidateUrls() {
       const contextAwareUrl = new URL(customerEndpoint, window.location.href).toString();
-      const rootUrl = `${window.location.origin}/v1/customers`;
-      const localhostUrl = "http://localhost:8080/v1/customers";
+      const rootUrl = `${window.location.origin}/api/v1/customers`;
+      const localhostUrl = "http://localhost:8080/api/v1/customers";
       const urls = [contextAwareUrl];
 
       if (rootUrl !== contextAwareUrl) {
