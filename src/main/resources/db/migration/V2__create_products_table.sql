@@ -1,0 +1,8 @@
+CREATE TABLE products
+(
+    id          BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    name        VARCHAR(255) NOT NULL,
+    description TEXT,
+    active      BOOLEAN      NOT NULL DEFAULT TRUE,
+    created_at  TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
