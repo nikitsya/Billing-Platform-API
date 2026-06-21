@@ -45,6 +45,13 @@ public class SubscriptionController {
                         "Customer not found"
                 ));
 
+        if (subscriptionRepository.existsByCustomer_Id(customer.getId())) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Customer already has a subscription"
+            );
+        }
+
         Price price = priceRepository.findById(request.priceId())
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND,
