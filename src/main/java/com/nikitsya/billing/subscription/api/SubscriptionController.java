@@ -8,11 +8,13 @@ import com.nikitsya.billing.subscription.model.Subscription;
 import com.nikitsya.billing.subscription.model.SubscriptionStatus;
 import com.nikitsya.billing.subscription.repository.SubscriptionRepository;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/v1/subscriptions")
@@ -70,6 +72,15 @@ public class SubscriptionController {
         );
 
         return subscriptionRepository.save(subscription);
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteSubscription(@PathVariable Long id) {
+        Optional<Subscription> subscription = subscriptionRepository.findById(id);
+        if (subscription.isEmpty()) return ResponseEntity.notFound().build();
+
+        subscriptionRepository.delete(subscription.get());
+        return ResponseEntity.noContent().build();
     }
 
     private LocalDateTime calculatePeriodEnd(LocalDateTime start, Price price) {
