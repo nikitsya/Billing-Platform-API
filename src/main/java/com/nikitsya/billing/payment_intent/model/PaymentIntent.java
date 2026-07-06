@@ -49,7 +49,7 @@ public class PaymentIntent {
         this.status = status;
         this.customer = customer;
         this.description = description;
-        this.metadata = metadata;
+        this.metadata = metadata == null ? new HashMap<>() : metadata;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
     }
