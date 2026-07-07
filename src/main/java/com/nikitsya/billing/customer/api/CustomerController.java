@@ -1,5 +1,6 @@
 package com.nikitsya.billing.customer.api;
 
+import com.nikitsya.billing.common.api.ErrorResponse;
 import com.nikitsya.billing.customer.model.Customer;
 import com.nikitsya.billing.customer.repository.CustomerRepository;
 import jakarta.validation.Valid;
@@ -23,13 +24,18 @@ public class CustomerController {
     }
 
     @PostMapping
-    public ResponseEntity<CustomerResponse> createCustomer(@Valid @RequestBody CreateCustomerRequest request) {
+    public ResponseEntity<?> createCustomer(@Valid @RequestBody CreateCustomerRequest request) {
         String email = request.email().trim().toLowerCase(Locale.ROOT);
         if (customerRepository.existsByEmail(email)) {
-            return ResponseEntity.status(HttpStatus.CONFLICT).build(); // 409
+            return ResponseEntity
+                    .status(HttpStatus.CONFLICT)   // 409
+                    .body(new ErrorResponse(
+                            "EMAIL_ALREADY_EXISTS",
+                            "Customer with email " + email + " already exists"
+                    ));
         }
         Customer saved = customerRepository.save(
-                new Customer(request.name(), request.email().toLowerCase(Locale.ROOT))
+                new Customer(request.name(), email)
         );
         CustomerResponse response = new CustomerResponse(saved.getId(), saved.getName(), saved.getEmail());
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
