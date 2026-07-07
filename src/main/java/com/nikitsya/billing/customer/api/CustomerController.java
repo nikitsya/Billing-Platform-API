@@ -3,6 +3,7 @@ package com.nikitsya.billing.customer.api;
 import com.nikitsya.billing.common.api.ErrorResponse;
 import com.nikitsya.billing.customer.model.Customer;
 import com.nikitsya.billing.customer.repository.CustomerRepository;
+import com.nikitsya.billing.payment_intent.repository.PaymentIntentRepository;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -18,9 +19,12 @@ import java.util.Optional;
 public class CustomerController {
 
     private final CustomerRepository customerRepository;
+    private final PaymentIntentRepository paymentIntentRepository;
 
-    public CustomerController(CustomerRepository customerRepository) {
+    public CustomerController(CustomerRepository customerRepository,
+                              PaymentIntentRepository paymentIntentRepository) {
         this.customerRepository = customerRepository;
+        this.paymentIntentRepository = paymentIntentRepository;
     }
 
     @PostMapping
@@ -74,10 +78,29 @@ public class CustomerController {
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteCustomer(@PathVariable Long id) {
-        Optional<Customer> customer = customerRepository.findById(id);
-        if (customer.isEmpty()) return ResponseEntity.notFound().build();
-        customerRepository.delete(customer.get());
+    public ResponseEntity<?> deleteCustomer(@PathVariable Long id) {
+        Optional<Customer> customerOptional = customerRepository.findById(id);
+
+        if (customerOptional.isEmpty()) {
+            return ResponseEntity
+                    .status(HttpStatus.NOT_FOUND)
+                    .body(new ErrorResponse(
+                            "CUSTOMER_NOT_FOUND",
+                            "Customer with id " + id + " was not found"
+                    ));
+        }
+
+        if (paymentIntentRepository.existsByCustomer_Id(id)) {
+            return ResponseEntity
+                    .status(HttpStatus.CONFLICT)
+                    .body(new ErrorResponse(
+                            "CUSTOMER_HAS_PAYMENT_INTENTS",
+                            "Customer with id " + id + " cannot be deleted because they have payment intents"
+                    ));
+        }
+
+        customerRepository.delete(customerOptional.get());
+
         return ResponseEntity.noContent().build();
     }
 }
