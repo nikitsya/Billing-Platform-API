@@ -15,4 +15,5 @@ public record PaymentIntentResponse(
         Map<String, Object> metadata,
         LocalDateTime createdAt,
         LocalDateTime updatedAt
-) {}
+) {
+}
