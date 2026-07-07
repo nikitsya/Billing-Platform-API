@@ -2,7 +2,7 @@ package com.nikitsya.billing.subscription.model;
 
 public enum SubscriptionStatus {
     ACTIVE,
-    CANCELLED,
+    CANCELED,
     PAST_DUE,
     INCOMPLETE
 }

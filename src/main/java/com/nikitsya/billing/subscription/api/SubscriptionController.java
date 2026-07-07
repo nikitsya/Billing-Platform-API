@@ -12,7 +12,6 @@ import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -37,8 +36,13 @@ public class SubscriptionController {
     }
 
     @GetMapping
-    public List<Subscription> getAllSubscriptions() {
-        return subscriptionRepository.findAll();
+    public ResponseEntity<List<SubscriptionResponse>> getAllSubscriptions() {
+        List<SubscriptionResponse> response = subscriptionRepository.findAll()
+                .stream()
+                .map(this::toResponse)
+                .toList();
+
+        return ResponseEntity.ok(response);
     }
 
     @PostMapping
@@ -78,6 +82,15 @@ public class SubscriptionController {
 
         Price price = priceOptional.get();
 
+        if (!isValidBillingInterval(price.getBillingInterval())) {
+            return ResponseEntity
+                    .status(HttpStatus.BAD_REQUEST)
+                    .body(new ErrorResponse(
+                            "INVALID_BILLING_INTERVAL",
+                            "Only MONTHLY and YEARLY prices can be used for subscriptions"
+                    ));
+        }
+
         LocalDateTime periodStart = LocalDateTime.now();
         LocalDateTime periodEnd = calculatePeriodEnd(periodStart, price);
 
@@ -91,34 +104,62 @@ public class SubscriptionController {
 
         Subscription saved = subscriptionRepository.save(subscription);
 
-        return ResponseEntity.status(HttpStatus.CREATED).body(saved);
+        return ResponseEntity
+                .status(HttpStatus.CREATED)
+                .body(toResponse(saved));
     }
 
-    @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteSubscription(@PathVariable Long id) {
-        Optional<Subscription> subscription = subscriptionRepository.findById(id);
-        if (subscription.isEmpty()) return ResponseEntity.notFound().build();
+    @PostMapping("/{id}/cancel")
+    public ResponseEntity<?> cancelSubscription(@PathVariable Long id) {
+        Optional<Subscription> subscriptionOptional = subscriptionRepository.findById(id);
 
-        subscriptionRepository.delete(subscription.get());
-        return ResponseEntity.noContent().build();
+        if (subscriptionOptional.isEmpty()) {
+            return ResponseEntity
+                    .status(HttpStatus.NOT_FOUND)
+                    .body(new ErrorResponse(
+                            "SUBSCRIPTION_NOT_FOUND",
+                            "Subscription with id " + id + " was not found"
+                    ));
+        }
+
+        Subscription subscription = subscriptionOptional.get();
+
+        if (subscription.getStatus() == SubscriptionStatus.CANCELED) {
+            return ResponseEntity
+                    .status(HttpStatus.CONFLICT)
+                    .body(new ErrorResponse(
+                            "SUBSCRIPTION_ALREADY_CANCELED",
+                            "Subscription with id " + id + " is already canceled"
+                    ));
+        }
+
+        subscription.setStatus(SubscriptionStatus.CANCELED);
+
+        Subscription saved = subscriptionRepository.save(subscription);
+
+        return ResponseEntity.ok(toResponse(saved));
+    }
+
+    private SubscriptionResponse toResponse(Subscription subscription) {
+        return new SubscriptionResponse(
+                subscription.getId(),
+                subscription.getCustomer().getId(),
+                subscription.getPrice().getId(),
+                subscription.getStatus(),
+                subscription.getCurrentPeriodStart(),
+                subscription.getCurrentPeriodEnd()
+        );
+    }
+
+    private boolean isValidBillingInterval(String billingInterval) {
+        return "MONTHLY".equals(billingInterval) || "YEARLY".equals(billingInterval);
     }
 
     private LocalDateTime calculatePeriodEnd(LocalDateTime start, Price price) {
-        String billingInterval = price.getBillingInterval();
-
-        return switch (billingInterval) {
+        return switch (price.getBillingInterval()) {
             case "MONTHLY" -> start.plusMonths(1);
             case "YEARLY" -> start.plusYears(1);
-            default -> throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    "Only MONTHLY and YEARLY prices can be used for subscriptions"
-            );
+            default -> throw new IllegalArgumentException("Invalid billing interval");
         };
-    }
-
-    public record CreateSubscriptionRequest(
-            Long customerId,
-            Long priceId
-    ) {
     }
 }
