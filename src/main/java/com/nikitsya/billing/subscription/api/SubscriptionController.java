@@ -1,5 +1,6 @@
 package com.nikitsya.billing.subscription.api;
 
+import com.nikitsya.billing.common.api.ErrorResponse;
 import com.nikitsya.billing.customer.model.Customer;
 import com.nikitsya.billing.customer.repository.CustomerRepository;
 import com.nikitsya.billing.price.model.Price;
@@ -7,6 +8,7 @@ import com.nikitsya.billing.price.repository.PriceRepository;
 import com.nikitsya.billing.subscription.model.Subscription;
 import com.nikitsya.billing.subscription.model.SubscriptionStatus;
 import com.nikitsya.billing.subscription.repository.SubscriptionRepository;
+import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -40,25 +42,41 @@ public class SubscriptionController {
     }
 
     @PostMapping
-    public Subscription createSubscription(@RequestBody CreateSubscriptionRequest request) {
-        Customer customer = customerRepository.findById(request.customerId())
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND,
-                        "Customer not found"
-                ));
+    public ResponseEntity<?> createSubscription(@Valid @RequestBody CreateSubscriptionRequest request) {
+        Optional<Customer> customerOptional = customerRepository.findById(request.customerId());
 
-        if (subscriptionRepository.existsByCustomer_Id(customer.getId())) {
-            throw new ResponseStatusException(
-                    HttpStatus.CONFLICT,
-                    "Customer already has a subscription"
-            );
+        if (customerOptional.isEmpty()) {
+            return ResponseEntity
+                    .status(HttpStatus.NOT_FOUND)
+                    .body(new ErrorResponse(
+                            "CUSTOMER_NOT_FOUND",
+                            "Customer with id " + request.customerId() + " was not found"
+                    ));
         }
 
-        Price price = priceRepository.findById(request.priceId())
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND,
-                        "Price not found"
-                ));
+        Customer customer = customerOptional.get();
+
+        if (subscriptionRepository.existsByCustomer_Id(customer.getId())) {
+            return ResponseEntity
+                    .status(HttpStatus.CONFLICT)
+                    .body(new ErrorResponse(
+                            "CUSTOMER_ALREADY_HAS_SUBSCRIPTION",
+                            "Customer with id " + customer.getId() + " already has a subscription"
+                    ));
+        }
+
+        Optional<Price> priceOptional = priceRepository.findById(request.priceId());
+
+        if (priceOptional.isEmpty()) {
+            return ResponseEntity
+                    .status(HttpStatus.NOT_FOUND)
+                    .body(new ErrorResponse(
+                            "PRICE_NOT_FOUND",
+                            "Price with id " + request.priceId() + " was not found"
+                    ));
+        }
+
+        Price price = priceOptional.get();
 
         LocalDateTime periodStart = LocalDateTime.now();
         LocalDateTime periodEnd = calculatePeriodEnd(periodStart, price);
@@ -71,7 +89,9 @@ public class SubscriptionController {
                 periodEnd
         );
 
-        return subscriptionRepository.save(subscription);
+        Subscription saved = subscriptionRepository.save(subscription);
+
+        return ResponseEntity.status(HttpStatus.CREATED).body(saved);
     }
 
     @DeleteMapping("/{id}")
