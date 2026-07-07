@@ -1,5 +1,6 @@
 package com.nikitsya.billing.payment_intent.api;
 
+import com.nikitsya.billing.common.api.ErrorResponse;
 import com.nikitsya.billing.customer.model.Customer;
 import com.nikitsya.billing.customer.repository.CustomerRepository;
 import com.nikitsya.billing.payment_intent.model.PaymentIntent;
@@ -38,10 +39,15 @@ public class PaymentIntentController {
     }
 
     @PostMapping
-    public ResponseEntity<PaymentIntentResponse> createPaymentIntent(@Valid @RequestBody CreatePaymentIntentRequest request) {
+    public ResponseEntity<?> createPaymentIntent(@Valid @RequestBody CreatePaymentIntentRequest request) {
         Customer customer = customerRepository.findById(request.customerId()).orElse(null);
         if (customer == null) {
-            return ResponseEntity.notFound().build();
+            return ResponseEntity
+                    .status(HttpStatus.NOT_FOUND)
+                    .body(new ErrorResponse(
+                            "CUSTOMER_NOT_FOUND",
+                            "Customer with id " + request.customerId() + " was not found"
+                    ));
         }
 
         PaymentIntent saved = paymentIntentRepository.save(
@@ -60,7 +66,6 @@ public class PaymentIntentController {
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
-
     private PaymentIntentResponse toResponse(PaymentIntent paymentIntent) {
         return new PaymentIntentResponse(
                 paymentIntent.getId(),
@@ -74,5 +79,4 @@ public class PaymentIntentController {
                 paymentIntent.getUpdatedAt()
         );
     }
-
 }
