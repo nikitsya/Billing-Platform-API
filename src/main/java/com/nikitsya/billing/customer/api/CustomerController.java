@@ -42,13 +42,25 @@ public class CustomerController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<CustomerResponse> getCustomer(@PathVariable Long id) {
-        Optional<Customer> customer = customerRepository.findById(id);
-        if (customer.isPresent()) {
-            CustomerResponse response = new CustomerResponse(customer.get().getId(), customer.get().getName(), customer.get().getEmail());
-            return ResponseEntity.ok().body(response);
+    public ResponseEntity<?> getCustomer(@PathVariable Long id) {
+        Optional<Customer> customerOptional = customerRepository.findById(id);
+
+        if (customerOptional.isPresent()) {
+            Customer customer = customerOptional.get();
+            CustomerResponse response = new CustomerResponse(
+                    customer.getId(),
+                    customer.getName(),
+                    customer.getEmail()
+            );
+            return ResponseEntity.ok(response);
         }
-        return ResponseEntity.notFound().build();
+
+        return ResponseEntity
+                .status(HttpStatus.NOT_FOUND)
+                .body(new ErrorResponse(
+                        "CUSTOMER_NOT_FOUND",
+                        "Customer with id " + id + " was not found"
+                ));
     }
 
     @GetMapping
