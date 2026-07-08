@@ -124,7 +124,7 @@ public class SubscriptionController {
 
         Subscription subscription = subscriptionOptional.get();
 
-        if (subscription.getStatus() == SubscriptionStatus.CANCELED) {
+        if (subscription.getStatus() == SubscriptionStatus.CANCELLED) {
             return ResponseEntity
                     .status(HttpStatus.CONFLICT)
                     .body(new ErrorResponse(
@@ -133,7 +133,7 @@ public class SubscriptionController {
                     ));
         }
 
-        subscription.setStatus(SubscriptionStatus.CANCELED);
+        subscription.setStatus(SubscriptionStatus.CANCELLED);
 
         Subscription saved = subscriptionRepository.save(subscription);
 
