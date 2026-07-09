@@ -41,7 +41,12 @@ public class CustomerController {
         Customer saved = customerRepository.save(
                 new Customer(request.name(), email)
         );
-        CustomerResponse response = new CustomerResponse(saved.getId(), saved.getName(), saved.getEmail());
+        CustomerResponse response = new CustomerResponse(
+                saved.getId(),
+                saved.getName(),
+                saved.getEmail(),
+                saved.getCreatedAt()
+        );
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
@@ -54,7 +59,8 @@ public class CustomerController {
             CustomerResponse response = new CustomerResponse(
                     customer.getId(),
                     customer.getName(),
-                    customer.getEmail()
+                    customer.getEmail(),
+                    customer.getCreatedAt()
             );
             return ResponseEntity.ok(response);
         }
@@ -72,7 +78,12 @@ public class CustomerController {
         List<Customer> customers = customerRepository.findAll();
         List<CustomerResponse> response = new ArrayList<>();
         for (Customer customer : customers) {
-            response.add(new CustomerResponse(customer.getId(), customer.getName(), customer.getEmail()));
+            response.add(new CustomerResponse(
+                    customer.getId(),
+                    customer.getName(),
+                    customer.getEmail(),
+                    customer.getCreatedAt()
+            ));
         }
         return ResponseEntity.ok().body(response);
     }
