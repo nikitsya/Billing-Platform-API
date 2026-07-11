@@ -60,16 +60,19 @@ public class SubscriptionController {
 
         Customer customer = customerOptional.get();
 
-        Optional<Subscription> existingSubscription = subscriptionRepository.findByCustomer_Id(customer.getId());
+        boolean hasExistingSubscription =
+                subscriptionRepository.existsByCustomer_IdAndStatusNot(
+                        customer.getId(),
+                        SubscriptionStatus.CANCELLED
+                );
 
-        if (existingSubscription.isPresent()
-                && existingSubscription.get().getStatus() != SubscriptionStatus.CANCELLED) {
-
+        if (hasExistingSubscription) {
             return ResponseEntity
                     .status(HttpStatus.CONFLICT)
                     .body(new ErrorResponse(
-                            "CUSTOMER_ALREADY_HAS_SUBSCRIPTION",
-                            "Customer with id " + customer.getId() + " already has a subscription"
+                            "CUSTOMER_ALREADY_HAS_ACTIVE_SUBSCRIPTION",
+                            "Customer with id " + customer.getId()
+                                    + " already has an active subscription"
                     ));
         }
 
@@ -106,11 +109,9 @@ public class SubscriptionController {
                 periodEnd
         );
 
-        Subscription saved = subscriptionRepository.save(subscription);
+        Subscription savedSubscription = subscriptionRepository.save(subscription);
 
-        return ResponseEntity
-                .status(HttpStatus.CREATED)
-                .body(toResponse(saved));
+        return ResponseEntity.status(HttpStatus.CREATED).body(toResponse(savedSubscription));
     }
 
     @PostMapping("/{id}/cancel")

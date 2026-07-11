@@ -1,0 +1,1 @@
+ALTER TABLE subscriptions DROP CONSTRAINT uq_subscriptions_customer_id;
