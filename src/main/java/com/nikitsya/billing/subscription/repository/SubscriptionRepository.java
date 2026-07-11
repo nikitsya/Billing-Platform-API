@@ -3,7 +3,9 @@ package com.nikitsya.billing.subscription.repository;
 import com.nikitsya.billing.subscription.model.Subscription;
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import java.util.Optional;
+
 public interface SubscriptionRepository extends JpaRepository<Subscription, Long> {
 
-    boolean existsByCustomer_Id(Long customerId);
+    Optional<Subscription> findByCustomer_Id(Long customerId);
 }

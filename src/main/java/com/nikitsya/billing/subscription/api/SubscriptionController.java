@@ -60,7 +60,11 @@ public class SubscriptionController {
 
         Customer customer = customerOptional.get();
 
-        if (subscriptionRepository.existsByCustomer_Id(customer.getId())) {
+        Optional<Subscription> existingSubscription = subscriptionRepository.findByCustomer_Id(customer.getId());
+
+        if (existingSubscription.isPresent()
+                && existingSubscription.get().getStatus() != SubscriptionStatus.CANCELLED) {
+
             return ResponseEntity
                     .status(HttpStatus.CONFLICT)
                     .body(new ErrorResponse(
