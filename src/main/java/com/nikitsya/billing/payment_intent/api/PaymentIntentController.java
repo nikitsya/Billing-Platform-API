@@ -115,6 +115,37 @@ public class PaymentIntentController {
                 ));
     }
 
+    @PostMapping("/{id}/cancel")
+    public ResponseEntity<?> cancelPaymentIntent(@PathVariable Long id) {
+        Optional<PaymentIntent> paymentIntentOptional = paymentIntentRepository.findById(id);
+
+        if (paymentIntentOptional.isPresent()) {
+            PaymentIntent paymentIntent = paymentIntentOptional.get();
+
+            if (paymentIntent.getStatus() != PaymentIntentStatus.REQUIRES_CONFIRMATION) {
+                return ResponseEntity
+                        .status(HttpStatus.CONFLICT)
+                        .body(new ErrorResponse(
+                                "PAYMENT_INTENT_CANNOT_BE_CANCELED",
+                                "Payment intent cannot be canceled while in status " + paymentIntent.getStatus()
+                        ));
+            }
+
+            paymentIntent.setStatus(PaymentIntentStatus.CANCELLED);
+
+            PaymentIntent saved = paymentIntentRepository.save(paymentIntent);
+
+            return ResponseEntity.ok(toResponse(saved));
+        }
+
+        return ResponseEntity
+                .status(HttpStatus.NOT_FOUND)
+                .body(new ErrorResponse(
+                        "PAYMENT_INTENT_NOT_FOUND",
+                        "Payment intent with id " + id + " was not found"
+                ));
+    }
+
     private PaymentIntentResponse toResponse(PaymentIntent paymentIntent) {
         return new PaymentIntentResponse(
                 paymentIntent.getId(),
