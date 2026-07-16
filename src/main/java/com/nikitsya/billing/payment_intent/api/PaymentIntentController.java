@@ -84,6 +84,37 @@ public class PaymentIntentController {
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
+    @PostMapping("/{id}/confirm")
+    public ResponseEntity<?> confirmPaymentIntent(@PathVariable Long id) {
+        Optional<PaymentIntent> paymentIntentOptional = paymentIntentRepository.findById(id);
+
+        if (paymentIntentOptional.isPresent()) {
+            PaymentIntent paymentIntent = paymentIntentOptional.get();
+
+            if (paymentIntent.getStatus() != PaymentIntentStatus.REQUIRES_CONFIRMATION) {
+                return ResponseEntity
+                        .status(HttpStatus.CONFLICT)
+                        .body(new ErrorResponse(
+                                "PAYMENT_INTENT_CANNOT_BE_CONFIRMED",
+                                "Payment intent cannot be confirmed while in status " + paymentIntent.getStatus()
+                        ));
+            }
+
+            paymentIntent.setStatus(PaymentIntentStatus.PROCESSING);
+
+            PaymentIntent saved = paymentIntentRepository.save(paymentIntent);
+
+            return ResponseEntity.ok(toResponse(saved));
+        }
+
+        return ResponseEntity
+                .status(HttpStatus.NOT_FOUND)
+                .body(new ErrorResponse(
+                        "PAYMENT_INTENT_NOT_FOUND",
+                        "Payment intent with id " + id + " was not found"
+                ));
+    }
+
     private PaymentIntentResponse toResponse(PaymentIntent paymentIntent) {
         return new PaymentIntentResponse(
                 paymentIntent.getId(),
