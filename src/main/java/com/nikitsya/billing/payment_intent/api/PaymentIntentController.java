@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/v1/payment_intents")
@@ -36,6 +37,23 @@ public class PaymentIntentController {
             response.add(toResponse(paymentIntent));
         }
         return ResponseEntity.ok().body(response);
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<?> getPaymentIntentById(@PathVariable Long id) {
+        Optional<PaymentIntent> paymentIntentOptional = paymentIntentRepository.findById(id);
+
+        if (paymentIntentOptional.isPresent()) {
+            PaymentIntent paymentIntent = paymentIntentOptional.get();
+            return ResponseEntity.ok().body(toResponse(paymentIntent));
+        }
+
+        return ResponseEntity
+                .status(HttpStatus.NOT_FOUND)
+                .body(new ErrorResponse(
+                        "PAYMENT_INTENT_NOT_FOUND",
+                        "Payment intent with id " + id + " was not found"
+                ));
     }
 
     @PostMapping
