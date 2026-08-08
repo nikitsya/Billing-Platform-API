@@ -3,6 +3,7 @@ package com.nikitsya.billing.customer.api;
 import com.nikitsya.billing.common.api.ErrorResponse;
 import com.nikitsya.billing.customer.model.Customer;
 import com.nikitsya.billing.customer.repository.CustomerRepository;
+import com.nikitsya.billing.payment_intent.repository.PaymentIntentRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -12,7 +13,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
 import java.util.List;
-import java.util.Locale;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -23,6 +23,9 @@ class CustomerControllerTest {
 
     @Mock
     private CustomerRepository customerRepository;
+
+    @Mock
+    private PaymentIntentRepository paymentIntentRepository;
 
     @InjectMocks
     private CustomerController customerController;
@@ -146,5 +149,67 @@ class CustomerControllerTest {
         verify(customerRepository).save(argThat(customer ->
                 customer.getName().equals("Hanna K") && customer.getEmail().equals("hanna_k@gmail.com")
         ));
+    }
+
+    @Test
+    void deleteCustomer_whenCustomerDoesNotExist_returnsNotFound() {
+        Long id = 1L;
+        when(customerRepository.findById(id)).thenReturn(Optional.empty());
+
+        ResponseEntity<?> response = customerController.deleteCustomer(id);
+
+        assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
+
+        ErrorResponse body = assertInstanceOf(ErrorResponse.class, response.getBody());
+
+        assertEquals("CUSTOMER_NOT_FOUND", body.error());
+        assertEquals("Customer with id " + id + " was not found", body.message());
+
+        verify(customerRepository).findById(id);
+        verifyNoInteractions(paymentIntentRepository);
+        verify(customerRepository, never()).delete(any(Customer.class));
+    }
+
+    @Test
+    void deleteCustomer_whenCustomerHasPaymentIntents_returnsConflict() {
+        Long id = 1L;
+        Customer customer = new Customer("Hanna K", "hanna_k@gmail.com");
+
+        when(customerRepository.findById(id)).thenReturn(Optional.of(customer));
+        when(paymentIntentRepository.existsByCustomer_Id(id)).thenReturn(true);
+
+        ResponseEntity<?> response = customerController.deleteCustomer(id);
+
+        assertEquals(HttpStatus.CONFLICT, response.getStatusCode());
+
+        ErrorResponse body = assertInstanceOf(ErrorResponse.class, response.getBody());
+
+        assertEquals("CUSTOMER_HAS_PAYMENT_INTENTS", body.error());
+        assertEquals(
+                "Customer with id " + id + " cannot be deleted because they have payment intents",
+                body.message()
+        );
+
+        verify(customerRepository).findById(id);
+        verify(paymentIntentRepository).existsByCustomer_Id(id);
+        verify(customerRepository, never()).delete(any(Customer.class));
+    }
+
+    @Test
+    void deleteCustomer_whenCustomerHasNoPaymentIntents_returnsNoContent() {
+        Long id = 1L;
+        Customer customer = new Customer("Hanna K", "hanna_k@gmail.com");
+
+        when(customerRepository.findById(id)).thenReturn(Optional.of(customer));
+        when(paymentIntentRepository.existsByCustomer_Id(id)).thenReturn(false);
+
+        ResponseEntity<?> response = customerController.deleteCustomer(id);
+
+        assertEquals(HttpStatus.NO_CONTENT, response.getStatusCode());
+        assertNull(response.getBody());
+
+        verify(customerRepository).findById(id);
+        verify(paymentIntentRepository).existsByCustomer_Id(id);
+        verify(customerRepository).delete(customer);
     }
 }
