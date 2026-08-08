@@ -21,8 +21,7 @@ public class CustomerController {
     private final CustomerRepository customerRepository;
     private final PaymentIntentRepository paymentIntentRepository;
 
-    public CustomerController(CustomerRepository customerRepository,
-                              PaymentIntentRepository paymentIntentRepository) {
+    public CustomerController(CustomerRepository customerRepository, PaymentIntentRepository paymentIntentRepository) {
         this.customerRepository = customerRepository;
         this.paymentIntentRepository = paymentIntentRepository;
     }
