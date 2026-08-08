@@ -3,7 +3,6 @@ package com.nikitsya.billing.customer.api;
 import com.nikitsya.billing.common.api.ErrorResponse;
 import com.nikitsya.billing.customer.model.Customer;
 import com.nikitsya.billing.customer.repository.CustomerRepository;
-import com.nikitsya.billing.payment_intent.repository.PaymentIntentRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -13,11 +12,11 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class CustomerControllerTest {
@@ -25,15 +24,11 @@ class CustomerControllerTest {
     @Mock
     private CustomerRepository customerRepository;
 
-    @Mock
-    private PaymentIntentRepository paymentIntentRepository;
-
     @InjectMocks
     private CustomerController customerController;
 
     @Test
     void getCustomer_whenCustomerDoesNotExist_returnsNotFound() {
-
         Long id = 1L;
 
         when(customerRepository.findById(id)).thenReturn(Optional.empty());
@@ -108,5 +103,48 @@ class CustomerControllerTest {
         assertTrue(body.isEmpty());
 
         verify(customerRepository).findAll();
+    }
+
+    @Test
+    void createCustomer_whenEmailAlreadyExists_returnsConflict() {
+        CreateCustomerRequest request = new CreateCustomerRequest("Hanna K", "hanna_k@gmail.com");
+
+        when(customerRepository.existsByEmail("hanna_k@gmail.com")).thenReturn(true);
+
+        ResponseEntity<?> response = customerController.createCustomer(request);
+
+        assertEquals(HttpStatus.CONFLICT, response.getStatusCode());
+
+        ErrorResponse body = assertInstanceOf(ErrorResponse.class, response.getBody());
+
+        assertEquals("EMAIL_ALREADY_EXISTS", body.error());
+        assertEquals("Customer with email hanna_k@gmail.com already exists", body.message());
+
+        verify(customerRepository).existsByEmail("hanna_k@gmail.com");
+        verify(customerRepository, never()).save(any(Customer.class));
+    }
+
+    @Test
+    void createCustomer_whenEmailDoesNotExist_returnsCreated() {
+        CreateCustomerRequest request = new CreateCustomerRequest("Hanna K", "  HANNA_K@GMAIL.COM  ");
+        Customer savedCustomer = new Customer("Hanna K", "hanna_k@gmail.com");
+
+        when(customerRepository.existsByEmail("hanna_k@gmail.com")).thenReturn(false);
+
+        when(customerRepository.save(any(Customer.class))).thenReturn(savedCustomer);
+
+        ResponseEntity<?> response = customerController.createCustomer(request);
+
+        assertEquals(HttpStatus.CREATED, response.getStatusCode());
+
+        CustomerResponse body = assertInstanceOf(CustomerResponse.class, response.getBody());
+
+        assertEquals("Hanna K", body.name());
+        assertEquals("hanna_k@gmail.com", body.email());
+
+        verify(customerRepository).existsByEmail("hanna_k@gmail.com");
+        verify(customerRepository).save(argThat(customer ->
+                customer.getName().equals("Hanna K") && customer.getEmail().equals("hanna_k@gmail.com")
+        ));
     }
 }
