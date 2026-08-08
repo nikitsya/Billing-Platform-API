@@ -41,7 +41,11 @@ class CustomerControllerTest {
         ResponseEntity<?> response = customerController.getCustomer(id);
 
         assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
-        assertInstanceOf(ErrorResponse.class, response.getBody());
+
+        ErrorResponse body = assertInstanceOf(ErrorResponse.class, response.getBody());
+
+        assertEquals("CUSTOMER_NOT_FOUND", body.error());
+        assertEquals("Customer with id " + id + " was not found", body.message());
 
         verify(customerRepository).findById(id);
     }
