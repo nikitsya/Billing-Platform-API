@@ -12,10 +12,10 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
+import java.util.List;
 import java.util.Optional;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -63,5 +63,46 @@ class CustomerControllerTest {
         assertEquals("hanna_k@gmail.com", body.email());
 
         verify(customerRepository).findById(id);
+    }
+
+    @Test
+    void getAllCustomers_whenCustomersExist_returnsCustomers() {
+        when(customerRepository.findAll()).thenReturn(
+                List.of(
+                        new Customer("Hanna K", "hanna_k@gmail.com"),
+                        new Customer("John Doe", "john@gmail.com")
+                ));
+
+        ResponseEntity<List<CustomerResponse>> response = customerController.getAllCustomers();
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertNotNull(response.getBody());
+
+        List<CustomerResponse> body = response.getBody();
+
+        assertEquals(2, body.size());
+
+        assertEquals("Hanna K", body.getFirst().name());
+        assertEquals("hanna_k@gmail.com", body.getFirst().email());
+
+        assertEquals("John Doe", body.getLast().name());
+        assertEquals("john@gmail.com", body.getLast().email());
+
+        verify(customerRepository).findAll();
+    }
+
+    @Test
+    void getAllCustomers_whenNoCustomersExist_returnsEmptyList() {
+        when(customerRepository.findAll()).thenReturn(List.of());
+
+        ResponseEntity<List<CustomerResponse>> response = customerController.getAllCustomers();
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertNotNull(response.getBody());
+
+        List<CustomerResponse> body = response.getBody();
+        assertTrue(body.isEmpty());
+
+        verify(customerRepository).findAll();
     }
 }
