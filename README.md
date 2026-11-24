@@ -418,3 +418,123 @@ creation and cancellation, and a local payment intent lifecycle suitable for a
 billing prototype. It does not yet authenticate API clients, create prices via
 the API, issue invoices, process real payments through an external provider, or
 move payment intents automatically from `PROCESSING` to a terminal status.
+
+## Project Assistant
+
+`POST /api/v1/project-assistant/messages` answers questions about this
+project using the OpenAI Responses API, GitHub source files and dated
+project notes. The frontend's sixth section is its browser client. It can
+explain the code but cannot read live billing records or perform billing
+actions.
+
+Configure these environment variables on the API server (for example, in the
+Render service's Environment settings), then deploy the backend and
+frontend:
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `OPENAI_API_KEY` | Empty | A project API key from the organisation holding your API credits |
+| `OPENAI_MODEL` | `gpt-5.4-mini-2026-03-17` | Responses model supporting `reasoning.effort: none` |
+| `AI_REQUESTS_PER_MINUTE` | `10` | Global request allowance per UTC minute |
+| `AI_REQUESTS_PER_DAY` | `100` | Global request allowance per UTC day |
+| `AI_REQUESTS_PER_MONTH` | `500` | Global request allowance per UTC calendar month |
+
+Keep the API key out of Git, the frontend and logs. An absent key disables
+answers with `503 ASSISTANT_UNAVAILABLE`; other billing endpoints still
+work. Use a dedicated OpenAI project to distinguish this site's usage.
+Eligible ChatGPT subscription API credits must be linked to the key's
+organisation; see [OpenAI's credit
+guide](https://developers.openai.com/api/docs/guides/chatgpt-api-credits).
+The first grant may be prorated, and unused subscription credits expire.
+
+The server accepts at most nine alternating user/assistant messages,
+beginning and ending with a user. User messages have a 2,000-character
+limit, assistant messages an 8,000-character limit, and the entire
+conversation a 12,000-character limit. Bodies over 64 KiB are rejected
+before JSON parsing. Only these roles and text content are forwarded. The
+model is configured on the server; callers cannot choose a model, tools or
+system instructions.
+
+```json
+{
+  "messages": [
+    {"role": "user", "content": "How is the project architected?"}
+  ]
+}
+```
+
+A successful response contains an `answer` string and a `sources` array of
+server-generated `{label, url}` links to the files read, pinned to commit
+SHAs. Validation errors return 400/413, exhausted local allowances return
+429, and provider/configuration failures return 502/503 with safe error
+messages. The provider connection has a five-second connect timeout and a
+thirty-second timeout per model call. Calls are not retried automatically
+and output is capped at 1,200 tokens. Incomplete or empty provider replies
+are treated as failures.
+
+### Allowances and cost
+
+Flyway migration V10 creates a single usage-counter row in PostgreSQL. The
+quota transaction locks this row and commits a reservation before a paid
+answer (at most two model calls). All API instances share these counters;
+restarting the service does not reset them. Failed provider attempts consume
+a reservation too. If the counter store is unavailable, the request fails
+without contacting OpenAI or GitHub. Set any request allowance to zero to
+disable calls.
+
+These are request ceilings, not a guaranteed dollar budget. Actual cost
+varies with model, input and output; check [current model
+pricing](https://developers.openai.com/api/docs/models/gpt-5.4-mini) and the
+OpenAI usage dashboard before raising them. The UTC calendar-month counter
+may reset on a different day from subscription credits. The public endpoint
+has no sign-in: a visitor can exhaust the shared allowance. CORS does not
+prevent non-browser use. Provider-side credit settings and, if traffic
+warrants it, an edge rate limiter or challenge provide further controls. Do
+not rely on an OpenAI project budget alert as a hard spend cap.
+
+### Knowledge and privacy
+
+The assistant reads the default branches of these two public repositories
+only:
+
+- `nikitsya/Billing-Platform-API`
+- `nikitsya/Billing-Platform-Frontend`
+
+On the first question, the server fetches their latest commit IDs and file
+trees. The catalogue is cached for one hour per API instance. The model
+selects up to three source files; the server reads them at those exact
+commits and supplies up to 12,000 characters per file, marking truncated
+excerpts. It then requests the answer with further tool use disabled. File
+content is cached with the catalogue. Repository updates become visible
+after cache expiry. Local or unmerged branch changes are not part of the
+GitHub source context.
+
+Only code, migration SQL, page HTML, stylesheets and selected root
+documentation are available. Hidden files, credentials, environment files,
+configuration properties, binaries and arbitrary URLs are excluded. Access
+is read-only and uses public GitHub endpoints without a token. GitHub errors
+or rate limits produce an unavailable response; failed catalogue refreshes
+have a one-minute cooldown. GitHub calls have five-second timeouts and no
+automatic retries. The maximum normal external wait is about 95 seconds
+before cold-start delays; the browser stops waiting after two minutes. This
+is deliberately bounded retrieval, not exhaustive analysis of every file for
+every question.
+
+Maintain `src/main/resources/assistant/project-notes.txt` alongside code
+changes. It includes source paths, the implemented architecture and explicit
+limitations, including the absence of real payment processing. The notes are
+secondary context; retrieved code takes precedence if revisions differ.
+There is no vector database. The model is instructed to distinguish facts
+from suggestions and to say when the notes do not establish an answer. AI
+output still needs checking.
+
+The application does not persist or log conversation text. The browser sends
+recent history on each turn, and `store: false` is sent to OpenAI. This does
+not override the provider's own retention policies. Only aggregate request
+counts are stored in the database; no IP addresses or visitor identifiers
+are recorded by this feature.
+
+The assistant tests use mocked OpenAI and GitHub responses and an isolated
+H2 database for quota transaction tests. They make no paid API calls. Run
+`./mvnw test`. A real-provider smoke test is still needed after the server
+key is set.

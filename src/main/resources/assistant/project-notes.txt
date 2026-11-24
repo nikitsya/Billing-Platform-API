@@ -1,0 +1,116 @@
+BILLING PLATFORM — CURATED PROJECT NOTES
+Reviewed against the frontend and API source on 24 November 2026.
+These notes describe the checked-out implementation, not a verified live deployment.
+
+Purpose and scope
+Billing Platform is a Stripe-inspired billing prototype (GitHub: nikitsya).
+It demonstrates customer, product, price, subscription and payment-intent workflows.
+It is not Stripe and does not integrate a real payment processor. The code does not
+establish production use, customer numbers, uptime, benchmark results or employment history.
+
+Repositories and deployment configuration
+Frontend: https://github.com/nikitsya/Billing-Platform-Frontend
+Backend: https://github.com/nikitsya/Billing-Platform-API
+The frontend's CNAME names billing.nikitsya.dev. Its js/api.js sends requests to
+https://billing-platform-api.onrender.com/api/v1. The backend has a multi-stage
+Dockerfile using Eclipse Temurin Java 21, Maven packaging and a JRE runtime.
+Database credentials come from DB_URL, DB_USERNAME and DB_PASSWORD environment variables.
+Source: frontend CNAME and js/api.js; backend Dockerfile, README.md and
+src/main/resources/application.properties.
+
+Frontend architecture
+The frontend uses static HTML, CSS and native JavaScript ES modules. There is no
+React, Vue, TypeScript or frontend build pipeline in package.json.
+Each area has its own index.html: overview, customers, products-and-prices,
+subscriptions, payments and ask-ai. The root index.html redirects to overview.
+index.js initialises the sidebar, connectivity check and page-specific modules.
+Modules check for their page's DOM elements before attaching handlers or fetching data.
+js/sidebar.js builds shared navigation. js/api.js wraps fetch and parses JSON/text
+responses. js/result.js supplies result/error presentation helpers. CSS has responsive
+layouts and reduced-motion support. The interface uses green, cream and red styling.
+The overview shows counts loaded from the API; other pages support customer management,
+catalogue browsing, subscription creation/cancellation and payment-intent creation/confirmation.
+Source: frontend index.js, js/sidebar.js, js/api.js, js/result.js, js/customers.js,
+js/product.js, js/price.js, js/subscriptions.js, js/payments.js and css/style.css.
+
+Backend architecture
+Java 21, Spring Boot 3.5.11, Spring Web, Spring Data JPA, Jakarta Bean Validation,
+PostgreSQL, Flyway, Actuator, Maven and Docker are declared in the project.
+Packages under src/main/java/com/nikitsya/billing group the billing domains:
+customer, product, price, subscription and payment_intent. Domains contain API DTOs,
+REST controllers, JPA entities and repository interfaces. Existing billing controllers
+perform validation, domain decisions and repository calls directly; there is no general
+service layer for those billing workflows. The project assistant adds its own service.
+Spring Data Redis is a dependency; the inspected billing code does not implement a
+Redis cache or Redis-backed rate limiter. Do not describe dependency presence as a feature.
+Hibernate validates entity mappings; Flyway owns schema changes and seed data.
+This is one Spring Boot application, not a microservice system or event-driven system.
+Source: backend pom.xml, src/main/resources/application.properties and the domain packages.
+
+Data relationships
+A customer has subscriptions and payment intents. A product has prices. A subscription
+selects a price. Prices store unit_amount_cents, currency and billing_interval.
+Payment intents store a positive amount in the smallest currency unit, currency,
+status, customer, description, timestamps and metadata as PostgreSQL jsonb.
+Emails are normalised to lower case and checked for uniqueness. PostgreSQL constraints
+and JPA mappings support data integrity, but this does not establish all race conditions
+are handled. V9 removes an earlier unique customer constraint on subscriptions;
+the controller still checks for existing non-cancelled subscriptions.
+Source: backend customer/model/Customer.java, price/model/Price.java,
+payment_intent/model/PaymentIntent.java and src/main/resources/db/migration/V1 through V9.
+Domain paths above are relative to src/main/java/com/nikitsya/billing/.
+
+API and business workflows
+Business routes use /api/v1. Customers support create/list/get/delete; deletion is
+blocked if payment intents reference a customer. Products support create/list/get.
+Prices support list/get; prices are seeded with Flyway rather than created via the API.
+Subscriptions support create/list/cancel. Only MONTHLY and YEARLY prices can be used;
+ONE_TIME is rejected. The controller checks for an existing non-cancelled subscription
+for a customer, starts new subscriptions as ACTIVE, and calculates the current period
+end by adding one month or year. Cancellation changes status to CANCELLED immediately.
+This is not evidence of a recurring charge scheduler, invoicing or automatic renewals.
+Payment intents support create/list/get/confirm/cancel. New intents start as
+REQUIRES_CONFIRMATION. Confirming moves them to PROCESSING; cancellation moves them
+to CANCELLED. Both operations require REQUIRES_CONFIRMATION. Confirmation does not
+call a bank or payment provider, and no automatic settlement is implemented.
+Shared errors have code and message fields. GET /api/v1/ping returns ok.
+Actuator provides an application health endpoint.
+Source: backend README.md; customer/api/CustomerController.java,
+subscription/api/SubscriptionController.java, payment_intent/api/PaymentIntentController.java,
+price/api/PriceController.java, product/api/ProductController.java and ping/PingController.java.
+
+Testing and current limitations
+The existing API tests include CustomerControllerTest, CustomerTest and PingControllerTest.
+The assistant change adds isolated HTTP, provider parsing, input validation and quota tests.
+Do not claim end-to-end payment testing or a coverage percentage.
+Configured CORS allows the frontend domain and listed localhost development origins.
+CORS is a browser control, not API authentication. The current billing endpoints do not
+authenticate clients. There is no implemented invoice system, payment-provider integration,
+webhook processing, automatic recurring charging or verified high-availability setup.
+The README documents a fresh-database seed caveat for migration V6, which references
+customer emails. Do not assume a fresh deployment works without reviewing those seeds.
+Potential improvements include authentication/authorisation, transactional concurrency
+protection, integration tests, idempotency, pagination and real provider integration.
+These are suggestions, not implemented capabilities or confirmed author intentions.
+Source: backend README.md, config/WebCorsConfig.java, src/test and db/migration.
+
+Project assistant
+The sixth frontend section sends a bounded recent conversation to
+POST /api/v1/project-assistant/messages. The backend calls the OpenAI Responses API
+with a server-side key, these dated notes and selected source files from both GitHub
+repositories. It fetches default-branch commit IDs and file catalogues with a one-hour
+cache, then lets the model select up to three allowed files, at most 12,000 characters
+each. Source links are pinned to the read commits. Local/unmerged changes are not in
+that source snapshot. It does not use vector search, query customer records or execute
+actions. Retrieved code takes precedence over conflicting dated notes. Notes should
+still be updated alongside code changes. Responses request store:false. Conversations are held only
+in page memory; reloading or starting a new conversation clears that page's history.
+This does not make a claim about OpenAI's own retention policies.
+PostgreSQL stores only global request counters: per minute, UTC day and UTC calendar
+month. Reservations commit before external requests, and failures count too. Each answer
+uses at most two model calls; the allowance counts visitor questions, not model calls. Limits
+survive restarts and are shared across API instances. They limit requests, not dollars;
+they do not stop a determined visitor consuming the public allowance. There is no login.
+The default model is gpt-5.4-mini-2026-03-17, with 1,200 maximum output tokens.
+Source: frontend js/project-chat.js; backend assistant package, assistant/project-notes.txt
+and db/migration/V10__create_assistant_usage.sql.
