@@ -3,8 +3,6 @@ package com.nikitsya.billing.assistant;
 import java.util.List;
 
 public record ChatRequest(List<Message> messages) {
-    public record Message(String role, String content) {}
-
     public void validate() {
         if (messages == null || messages.isEmpty() || messages.size() > 9 || messages.size() % 2 == 0) {
             throw ChatException.invalidRequest();
@@ -23,5 +21,8 @@ public record ChatRequest(List<Message> messages) {
         if (characters > 12000) {
             throw ChatException.invalidRequest();
         }
+    }
+
+    public record Message(String role, String content) {
     }
 }

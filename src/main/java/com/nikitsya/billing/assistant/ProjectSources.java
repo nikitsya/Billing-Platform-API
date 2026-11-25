@@ -35,6 +35,17 @@ public class ProjectSources {
         this.client = client;
     }
 
+    static boolean allowedPath(String path) {
+        if (!path.matches("[A-Za-z0-9_/-]+(?:\\.[A-Za-z0-9_-]+)?") || path.contains("..")) return false;
+        if (List.of("README.md", "pom.xml", "package.json", "Dockerfile").contains(path)) return true;
+        if (path.startsWith("src/main/java/") || path.startsWith("src/test/java/")) return path.endsWith(".java");
+        if (path.startsWith("src/main/resources/db/migration/")) return path.endsWith(".sql");
+        if (path.startsWith("js/") || path.startsWith("test/")) return path.endsWith(".js");
+        if (path.startsWith("css/")) return path.endsWith(".css");
+        return path.equals("index.js") || path.equals("index.html")
+                || path.matches("(overview|customers|products-and-prices|subscriptions|payments|ask-ai)/index\\.html");
+    }
+
     public synchronized Snapshot snapshot() {
         Instant now = Instant.now();
         if (cached != null && now.isBefore(cached.expiresAt())) return cached;
@@ -76,20 +87,10 @@ public class ProjectSources {
         return snapshot.contents().computeIfAbsent(id, ignored -> {
             String text = get("https://raw.githubusercontent.com/nikitsya/" + file.repository()
                     + "/" + file.commit() + "/" + file.path());
-            if (text.length() > 12000) text = text.substring(0, 12000) + "\n[File excerpt truncated at 12,000 characters]";
+            if (text.length() > 12000)
+                text = text.substring(0, 12000) + "\n[File excerpt truncated at 12,000 characters]";
             return text;
         });
-    }
-
-    static boolean allowedPath(String path) {
-        if (!path.matches("[A-Za-z0-9_/-]+(?:\\.[A-Za-z0-9_-]+)?") || path.contains("..")) return false;
-        if (List.of("README.md", "pom.xml", "package.json", "Dockerfile").contains(path)) return true;
-        if (path.startsWith("src/main/java/") || path.startsWith("src/test/java/")) return path.endsWith(".java");
-        if (path.startsWith("src/main/resources/db/migration/")) return path.endsWith(".sql");
-        if (path.startsWith("js/") || path.startsWith("test/")) return path.endsWith(".js");
-        if (path.startsWith("css/")) return path.endsWith(".css");
-        return path.equals("index.js") || path.equals("index.html")
-                || path.matches("(overview|customers|products-and-prices|subscriptions|payments|ask-ai)/index\\.html");
     }
 
     private String get(String url) {
@@ -109,7 +110,9 @@ public class ProjectSources {
     }
 
     public record Snapshot(Map<String, SourceFile> files, Instant expiresAt, Map<String, String> contents) {
-        public String catalogue() { return String.join("\n", files.keySet().stream().sorted().toList()); }
+        public String catalogue() {
+            return String.join("\n", files.keySet().stream().sorted().toList());
+        }
     }
 
     public record SourceFile(String id, String repository, String commit, String path) {

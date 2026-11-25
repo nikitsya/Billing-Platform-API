@@ -10,10 +10,27 @@ import java.util.Map;
 import java.util.Optional;
 
 record TestResponse(int statusCode, String body) implements HttpResponse<String> {
-    public HttpRequest request() { return null; }
-    public Optional<HttpResponse<String>> previousResponse() { return Optional.empty(); }
-    public HttpHeaders headers() { return HttpHeaders.of(Map.of(), (name, value) -> true); }
-    public Optional<SSLSession> sslSession() { return Optional.empty(); }
-    public URI uri() { return URI.create("https://example.test"); }
-    public HttpClient.Version version() { return HttpClient.Version.HTTP_1_1; }
+    public HttpRequest request() {
+        return null;
+    }
+
+    public Optional<HttpResponse<String>> previousResponse() {
+        return Optional.empty();
+    }
+
+    public HttpHeaders headers() {
+        return HttpHeaders.of(Map.of(), (name, value) -> true);
+    }
+
+    public Optional<SSLSession> sslSession() {
+        return Optional.empty();
+    }
+
+    public URI uri() {
+        return URI.create("https://example.test");
+    }
+
+    public HttpClient.Version version() {
+        return HttpClient.Version.HTTP_1_1;
+    }
 }
