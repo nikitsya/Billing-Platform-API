@@ -4,17 +4,18 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.mockito.ArgumentMatchers;
 
+import java.io.ByteArrayOutputStream;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.ByteBuffer;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Flow;
-import java.nio.ByteBuffer;
-import java.io.ByteArrayOutputStream;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -39,9 +40,9 @@ class ProjectAssistantServiceTest {
 
     @Test
     void readsSelectedCodeAndReturnsServerControlledSourceLinks() throws Exception {
-        when(client.send(any(), any(HttpResponse.BodyHandler.class))).thenReturn(
-                response(200, selection(fileId)),
-                response(200, """
+        when(client.send(any(), ArgumentMatchers.<HttpResponse.BodyHandler<String>>any()))
+                .thenReturn(response(200, selection(fileId)))
+                .thenReturn(response(200, """
                         {"status":"completed","output":[{"type":"reasoning"},
                         {"type":"message","content":[{"type":"output_text","text":"Java backend."},
                         {"type":"output_text","text":"Static frontend."}]}]}
@@ -52,7 +53,7 @@ class ProjectAssistantServiceTest {
                 answer.sources().getFirst().url());
         verify(quota).reserve();
         var captor = ArgumentCaptor.forClass(HttpRequest.class);
-        verify(client, times(2)).send(captor.capture(), any(HttpResponse.BodyHandler.class));
+        verify(client, times(2)).send(captor.capture(), ArgumentMatchers.<HttpResponse.BodyHandler<String>>any());
         var payload = mapper.readTree(body(captor.getAllValues().get(1)));
         assertFalse(payload.path("store").asBoolean());
         assertEquals(1200, payload.path("max_output_tokens").asInt());
@@ -84,16 +85,16 @@ class ProjectAssistantServiceTest {
 
     @Test
     void disallowedToolPathCannotCauseAnExternalRead() throws Exception {
-        when(client.send(any(), any(HttpResponse.BodyHandler.class)))
+        when(client.send(any(), ArgumentMatchers.<HttpResponse.BodyHandler<String>>any()))
                 .thenReturn(response(200, selection("https://attacker.example/secrets")));
         assertThrows(ChatException.class, () -> service.answer(question()));
         verify(sources, never()).read(any(), any());
-        verify(client, times(1)).send(any(), any(HttpResponse.BodyHandler.class));
+        verify(client, times(1)).send(any(), ArgumentMatchers.<HttpResponse.BodyHandler<String>>any());
     }
 
     @Test
     void providerErrorsDoNotExposeUpstreamDetails() throws Exception {
-        when(client.send(any(), any(HttpResponse.BodyHandler.class)))
+        when(client.send(any(), ArgumentMatchers.<HttpResponse.BodyHandler<String>>any()))
                 .thenReturn(response(401, "test-secret internal diagnostic"));
         ChatException error = assertThrows(ChatException.class, () -> service.answer(question()));
         assertFalse(error.getMessage().contains("test-secret"));
@@ -101,7 +102,7 @@ class ProjectAssistantServiceTest {
 
     @Test
     void incompleteRepliesAreNotPresentedAsComplete() throws Exception {
-        when(client.send(any(), any(HttpResponse.BodyHandler.class)))
+        when(client.send(any(), ArgumentMatchers.<HttpResponse.BodyHandler<String>>any()))
                 .thenReturn(response(200, "{\"status\":\"incomplete\",\"output\":[]}"));
         assertThrows(ChatException.class, () -> service.answer(question()));
     }
@@ -121,7 +122,9 @@ class ProjectAssistantServiceTest {
                 new ChatRequest.Message("user", "x"))).validate());
     }
 
-    private ChatRequest question() { return new ChatRequest(List.of(new ChatRequest.Message("user", "Architecture?"))); }
+    private ChatRequest question() {
+        return new ChatRequest(List.of(new ChatRequest.Message("user", "Architecture?")));
+    }
 
     private String selection(String id) throws Exception {
         return mapper.writeValueAsString(Map.of("status", "completed", "output", List.of(Map.of(
@@ -135,15 +138,23 @@ class ProjectAssistantServiceTest {
 
     private String body(HttpRequest request) {
         var bytes = new ByteArrayOutputStream();
-        request.bodyPublisher().orElseThrow().subscribe(new Flow.Subscriber<ByteBuffer>() {
-            public void onSubscribe(Flow.Subscription subscription) { subscription.request(Long.MAX_VALUE); }
+        request.bodyPublisher().orElseThrow().subscribe(new Flow.Subscriber<>() {
+            public void onSubscribe(Flow.Subscription subscription) {
+                subscription.request(Long.MAX_VALUE);
+            }
+
             public void onNext(ByteBuffer buffer) {
                 byte[] part = new byte[buffer.remaining()];
                 buffer.get(part);
                 bytes.writeBytes(part);
             }
-            public void onError(Throwable error) { fail(error); }
-            public void onComplete() {}
+
+            public void onError(Throwable error) {
+                fail(error);
+            }
+
+            public void onComplete() {
+            }
         });
         return bytes.toString(java.nio.charset.StandardCharsets.UTF_8);
     }

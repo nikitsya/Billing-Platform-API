@@ -58,5 +58,6 @@ public class ChatQuota {
     }
 
     private record Usage(OffsetDateTime minute, LocalDate day, LocalDate month,
-                         int minuteCount, int dayCount, int monthCount) {}
+                         int minuteCount, int dayCount, int monthCount) {
+    }
 }

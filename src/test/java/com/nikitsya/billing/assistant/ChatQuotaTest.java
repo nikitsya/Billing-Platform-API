@@ -18,13 +18,17 @@ import java.util.ArrayList;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 @SpringJUnitConfig(ChatQuotaTest.Config.class)
 class ChatQuotaTest {
-    @Autowired ChatQuota quota;
-    @Autowired JdbcTemplate jdbc;
-    @Autowired DataSource dataSource;
+    @Autowired
+    ChatQuota quota;
+    @Autowired
+    JdbcTemplate jdbc;
+    @Autowired
+    DataSource dataSource;
 
     @BeforeEach
     void reset() {
@@ -39,8 +43,12 @@ class ChatQuotaTest {
             var results = new ArrayList<Future<Boolean>>();
             for (int i = 0; i < 20; i++) {
                 results.add(executor.submit(() -> {
-                    try { quota.reserve(); return true; }
-                    catch (ChatException exception) { return false; }
+                    try {
+                        quota.reserve();
+                        return true;
+                    } catch (ChatException exception) {
+                        return false;
+                    }
                 }));
             }
             int successes = 0;
@@ -74,9 +82,24 @@ class ChatQuotaTest {
     @Configuration
     @EnableTransactionManagement
     static class Config {
-        @Bean DataSource dataSource() { return new DriverManagerDataSource("jdbc:h2:mem:chatquota;MODE=PostgreSQL;DB_CLOSE_DELAY=-1", "sa", ""); }
-        @Bean JdbcTemplate jdbc(DataSource source) { return new JdbcTemplate(source); }
-        @Bean DataSourceTransactionManager transactionManager(DataSource source) { return new DataSourceTransactionManager(source); }
-        @Bean ChatQuota quota(JdbcTemplate jdbc) { return new ChatQuota(jdbc, 3, 5, 7); }
+        @Bean
+        DataSource dataSource() {
+            return new DriverManagerDataSource("jdbc:h2:mem:chatquota;MODE=PostgreSQL;DB_CLOSE_DELAY=-1", "sa", "");
+        }
+
+        @Bean
+        JdbcTemplate jdbc(DataSource source) {
+            return new JdbcTemplate(source);
+        }
+
+        @Bean
+        DataSourceTransactionManager transactionManager(DataSource source) {
+            return new DataSourceTransactionManager(source);
+        }
+
+        @Bean
+        ChatQuota quota(JdbcTemplate jdbc) {
+            return new ChatQuota(jdbc, 3, 5, 7);
+        }
     }
 }

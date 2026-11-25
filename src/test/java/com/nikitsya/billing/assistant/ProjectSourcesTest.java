@@ -3,6 +3,7 @@ package com.nikitsya.billing.assistant;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.mockito.ArgumentMatchers;
 
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -34,8 +35,12 @@ class ProjectSourcesTest {
                 {"tree":[{"path":"README.md","type":"blob","mode":"100644","size":42},
                 {"path":".env","type":"blob","mode":"100644","size":12}]}
                 """;
-        when(client.send(any(), any(HttpResponse.BodyHandler.class))).thenReturn(
-                response(commits), response(tree), response(commits), response(tree), response("Project source"));
+        when(client.send(any(), ArgumentMatchers.<HttpResponse.BodyHandler<String>>any()))
+                .thenReturn(response(commits))
+                .thenReturn(response(tree))
+                .thenReturn(response(commits))
+                .thenReturn(response(tree))
+                .thenReturn(response("Project source"));
         ProjectSources sources = new ProjectSources(new ObjectMapper(), client);
         var snapshot = sources.snapshot();
         assertSame(snapshot, sources.snapshot());
@@ -45,7 +50,7 @@ class ProjectSourcesTest {
         assertEquals("Project source", sources.read(snapshot, id));
         assertThrows(ChatException.class, () -> sources.read(snapshot, "https://attacker.example"));
         var captor = ArgumentCaptor.forClass(HttpRequest.class);
-        verify(client, times(5)).send(captor.capture(), any(HttpResponse.BodyHandler.class));
+        verify(client, times(5)).send(captor.capture(), ArgumentMatchers.<HttpResponse.BodyHandler<String>>any());
         assertEquals("https://raw.githubusercontent.com/nikitsya/Billing-Platform-Frontend/" + sha + "/README.md",
                 captor.getAllValues().get(4).uri().toString());
     }

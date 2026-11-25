@@ -14,9 +14,9 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 class ProjectAssistantControllerTest {
+    private static final String URL = "/api/v1/project-assistant/messages";
     private final ProjectAssistantService service = mock(ProjectAssistantService.class);
     private MockMvc mvc;
-    private static final String URL = "/api/v1/project-assistant/messages";
 
     @BeforeEach
     void setUp() {
